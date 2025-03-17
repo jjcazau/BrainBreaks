@@ -266,7 +266,7 @@
     document.getElementById('newWordBtn').addEventListener('click', newWord);
 
     // Fetch the word list from the provided URL and filter out any words that aren't strictly letters
-    const wordListURL = 'https://raw.githubusercontent.com/The-Best-Codes/safe-words/refs/heads/main/verified-words.txt';
+    const wordListURL = 'https://raw.githubusercontent.com/jjcazau/BrainBreaks/refs/heads/master/word-scramble/safe-words.txt';
     fetch(wordListURL)
       .then(response => response.text())
       .then(text => {
