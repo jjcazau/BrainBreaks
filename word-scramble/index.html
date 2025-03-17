@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Word Scramble Challenge</title>
+  <style>
+    /* Base styles */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #f6d365, #fda085);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    #container {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      width: 90%;
+      max-width: 800px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    .letter-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-height: 80px;
+      margin: 10px 0;
+      padding: 10px;
+      border: 2px dashed #ccc;
+      border-radius: 5px;
+      background: #fafafa;
+    }
+    .letter {
+      background: #4CAF50;
+      color: #fff;
+      font-size: 2rem;
+      font-weight: bold;
+      width: 60px;
+      height: 60px;
+      margin: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 5px;
+      cursor: move;
+      user-select: none;
+      transition: opacity 0.2s ease;
+    }
+    /* Placeholder style for drop target */
+    .placeholder {
+      background: transparent;
+      border: 2px dashed #555;
+      width: 60px;
+      height: 60px;
+      margin: 5px;
+      border-radius: 5px;
+    }
+    button {
+      background: #2196F3;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #1976D2;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>Word Scramble Challenge</h1>
+    
+    <div id="scrambled-container">
+      <h2>Scrambled Letters</h2>
+      <div id="scrambled" class="letter-container"></div>
+    </div>
+    
+    <div id="answer-container">
+      <h2>Your Answer</h2>
+      <div id="answer" class="letter-container"></div>
+    </div>
+    
+    <button id="newWordBtn">New Word</button>
+  </div>
+
+  <!-- Confetti library from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  
+  <script>
+    // Global word list variable
+    let words = [];
+    let currentWord = "";
+    
+    // Global placeholder element for drop indication
+    const placeholder = document.createElement('div');
+    placeholder.classList.add('placeholder');
+
+    // Global variables to store dragged element info
+    let draggedElement = null;
+    let originalContainer = null;
+    let originalNextSibling = null;
+    let droppedValid = false; // Flag to track if drop was valid
+
+    // Helper function to shuffle an array (Fisher-Yates)
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // Function to set up a new word
+    function newWord() {
+      // Clear previous letters
+      document.getElementById('scrambled').innerHTML = "";
+      document.getElementById('answer').innerHTML = "";
+      
+      if (words.length === 0) return;
+      
+      // Select a random word from the list
+      currentWord = words[Math.floor(Math.random() * words.length)];
+      
+      // Split word into letters and shuffle them
+      const letters = currentWord.split('');
+      const scrambledLetters = shuffle([...letters]);
+      
+      // Create draggable letter tiles for the scrambled container
+      scrambledLetters.forEach((letter, index) => {
+        const letterDiv = document.createElement('div');
+        letterDiv.classList.add('letter');
+        letterDiv.innerText = letter.toUpperCase();
+        letterDiv.setAttribute('draggable', 'true');
+        letterDiv.id = 'letter-' + index;
+        letterDiv.addEventListener('dragstart', dragStart);
+        letterDiv.addEventListener('dragend', dragEnd);
+        document.getElementById('scrambled').appendChild(letterDiv);
+      });
+    }
+
+    // Event handler for starting a drag
+    function dragStart(e) {
+      droppedValid = false; // Reset flag for new drag
+      draggedElement = e.target;
+      originalContainer = e.target.parentNode;
+      originalNextSibling = e.target.nextSibling;
+      e.dataTransfer.setData("text/plain", e.target.id);
+      // Set a custom drag image using the element itself
+      e.dataTransfer.setDragImage(e.target, e.target.offsetWidth/2, e.target.offsetHeight/2);
+      // Use a timeout to allow the drag to start before hiding the element to close the gap
+      setTimeout(() => {
+        e.target.style.display = 'none';
+      }, 0);
+    }
+
+    // Event handler for ending a drag
+    function dragEnd(e) {
+      // If the letter was not dropped into a valid container, restore it to its original container.
+      if (!droppedValid && originalContainer) {
+        e.target.style.display = 'flex';
+        if (!e.target.parentNode) {
+          if (originalNextSibling) {
+            originalContainer.insertBefore(e.target, originalNextSibling);
+          } else {
+            originalContainer.appendChild(e.target);
+          }
+        }
+      }
+      draggedElement = null;
+      originalContainer = null;
+      originalNextSibling = null;
+      droppedValid = false;
+      if (placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+      }
+    }
+
+    // Determines the correct position for the dragged letter
+    function getDragAfterElement(container, x) {
+      const draggableElements = [...container.querySelectorAll('.letter')];
+      let closest = { offset: Number.POSITIVE_INFINITY, element: null };
+      draggableElements.forEach(child => {
+        const box = child.getBoundingClientRect();
+        const childCenter = box.left + box.width / 2;
+        const offset = x - childCenter;
+        if (offset < 0 && Math.abs(offset) < closest.offset) {
+          closest = { offset: Math.abs(offset), element: child };
+        }
+      });
+      return closest.element;
+    }
+
+    // Shows the placeholder where the letter will be dropped
+    function handleDragOver(e) {
+      e.preventDefault();
+      const container = e.currentTarget;
+      const afterElement = getDragAfterElement(container, e.clientX);
+      if (afterElement === null) {
+        container.appendChild(placeholder);
+      } else {
+        container.insertBefore(placeholder, afterElement);
+      }
+    }
+
+    // Handle drop events on containers
+    function drop(e) {
+      e.preventDefault();
+      const letterId = e.dataTransfer.getData("text/plain");
+      const letterEl = document.getElementById(letterId);
+      // Restore the letter's display so it becomes visible
+      letterEl.style.display = 'flex';
+      const container = e.currentTarget;
+      if (container.contains(placeholder)) {
+        container.insertBefore(letterEl, placeholder);
+        placeholder.remove();
+      } else {
+        container.appendChild(letterEl);
+      }
+      droppedValid = true; // Mark that the drop was successful
+      checkAnswer();
+    }
+
+    // Check if the dropped letters form the correct word
+    function checkAnswer() {
+      const answerContainer = document.getElementById('answer');
+      const letters = answerContainer.querySelectorAll('.letter');
+      if (letters.length === currentWord.length) {
+        let userWord = '';
+        letters.forEach(letter => {
+          userWord += letter.innerText.toLowerCase();
+        });
+        if (userWord === currentWord) {
+          // Trigger fun confetti effect if correct
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+          // Load a new word after a short delay
+          setTimeout(newWord, 2000);
+        }
+      }
+    }
+
+    // Attach dragover and drop event listeners on both containers
+    const scrambledContainer = document.getElementById('scrambled');
+    const answerContainer = document.getElementById('answer');
+    scrambledContainer.addEventListener('dragover', handleDragOver);
+    scrambledContainer.addEventListener('drop', drop);
+    answerContainer.addEventListener('dragover', handleDragOver);
+    answerContainer.addEventListener('drop', drop);
+
+    // New Word button event listener
+    document.getElementById('newWordBtn').addEventListener('click', newWord);
+
+    // Fetch the word list from the provided URL and filter out any words that aren't strictly letters
+    const wordListURL = 'https://raw.githubusercontent.com/The-Best-Codes/safe-words/refs/heads/main/verified-words.txt';
+    fetch(wordListURL)
+      .then(response => response.text())
+      .then(text => {
+        // Split the text into an array (one word per line) and filter with regex /^[A-Za-z]+$/
+        words = text.split('\n').map(word => word.trim()).filter(word => /^[A-Za-z]+$/.test(word));
+        // If words loaded successfully, start the game
+        newWord();
+      })
+      .catch(err => {
+        console.error("Error fetching word list, using fallback.", err);
+        // Fallback list in case fetch fails
+        words = ["apple", "banana", "cherry", "orange", "grapes", "mango", "peach", "pear", "lemon", "melon"];
+        newWord();
+      });
+  </script>
+</body>
+</html>
